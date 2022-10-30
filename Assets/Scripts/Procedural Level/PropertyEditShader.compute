@@ -1,0 +1,55 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+struct MeshProperties {
+    // Transform properties
+    float3 position;
+    float4x4 rotation; // quaternion
+    float3 scale;
+
+    // 
+    float4 color;
+};
+
+RWStructuredBuffer<MeshProperties> _MeshProperties;
+
+float _Time;
+
+float4x4 RotateAroundAxis (float3 axis, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+
+    float t = 1 - c;
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
+
+    return float4x4(
+        t * x * x + c,      t * x * y - s * z,  t * x * z + s * y, 0,
+        t * x * y + s * z,  t * y * y + c,      t * y * z - s * x, 0,
+        t * x * z - s * y,  t * y * z + s * x,  t * z * z + c, 0,
+        0, 0, 0, 1
+    );
+}
+
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID) {
+    float3 pos = _MeshProperties[id.x].position;
+    float4x4 rot = _MeshProperties[id.x].rotation;
+    float3 scl = _MeshProperties[id.x].scale;
+
+    float3 axis = float3(rot._m00, rot._m01, rot._m01);
+
+    float4x4 r = RotateAroundAxis(normalize(axis), 0.01);
+    
+    _MeshProperties[id.x].rotation = mul(rot, r);
+    
+    /*
+    float a = _Time * 0.0001 * (1 / abs(pos.y));
+    _MeshProperties[id.x].position.xz = mul(float2x2(
+        cos(a), -sin(a),
+        sin(a), cos(a)
+    ), _MeshProperties[id.x].position.xz);
+    */
+
+}
